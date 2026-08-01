@@ -12,13 +12,20 @@ except ImportError:
     print("エラー: tkinterdnd2 ライブラリが見つかりません。インストールしてください: pip install tkinterdnd2")
     exit(1)
 
+# バージョン: ビルド時に Makefile / CI が _version.py を生成して注入する。
+# ローカルで直接実行するなど未生成の場合は dev にフォールバックする。
+try:
+    from _version import __version__
+except ImportError:
+    __version__ = "dev"
+
 # ロギングの設定
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 処理0-1: GUI表示
 def create_gui():
     root = TkinterDnD.Tk()  # tkinterdnd2 の Tk を使用
-    root.title("無音ノーツ自動置換ツール")
+    root.title(f"無音ノーツ自動置換ツール {__version__}")
     root.geometry("700x380")
 
     # ドラッグ・アンド・ドロップの設定
