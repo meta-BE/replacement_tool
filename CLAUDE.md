@@ -23,7 +23,8 @@ make release-patch   # / release-minor / release-major
 ```
 
 - テスト・Lint 設定は存在しない（単一スクリプト構成）。
-- 配布用 `.exe` は PyInstaller（onefile/console）でビルドする。`v*` タグ push を起点に GitHub Actions（`.github/workflows/build-windows.yml`, windows-latest）が exe をビルドし、`無音ノーツ自動置換ツール_<tag>.zip` を Release に添付する。exe はリポジトリにコミットしない。
+- 配布用 `.exe` は PyInstaller（onefile/console）でビルドする。`v*` タグ push を起点に GitHub Actions（`.github/workflows/build-windows.yml`, windows-latest）が exe をビルドし、`replacement_tool_<tag>.zip` を Release に添付する。exe はリポジトリにコミットしない。
+  - zip 内の exe 名は日本語（`無音ノーツ自動置換ツール.exe`）のまま。Release のアセット名だけ ASCII にしているのは、GitHub がリリースアセット名の非ASCII文字を除去してしまうため（例: `無音…_v1.0.0.zip` が `_v1.0.0.zip` になる）。
 - PyInstaller はクロスコンパイル不可のため、Windows exe の生成は CI 専用。`make build` は mac ネイティブの動作確認用。
 
 ## アーキテクチャ
