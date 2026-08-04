@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from math import gcd
 
 
@@ -27,6 +28,50 @@ KEY_LANE_TABLE = {
     (LANE_ORDER_OPTIONS[2], SIDE_ORDER_OPTIONS[1]): ["24", "23", "25", "22", "28", "21", "29", "14", "13", "15", "12", "18", "11", "19"],
     (LANE_ORDER_OPTIONS[3], SIDE_ORDER_OPTIONS[1]): ["24", "25", "23", "28", "22", "29", "21", "14", "15", "13", "18", "12", "19", "11"],
 }
+
+NO_SOUND_PATTERN = re.compile(r'^[0-9A-Za-z]{2}$')
+
+
+def validate_params(file_path, max_bgmlanenumber, no_sound_objnumber, start, end):
+    """GUI から受け取った文字列を検証し、(max_bgmlanenumber, start, end) を int で返す。"""
+    if not all([file_path, max_bgmlanenumber, no_sound_objnumber, start, end]):
+        raise ValueError("すべての項目を入力してください")
+
+    # 数値項目のチェック (0～999)
+    for value, name in [(max_bgmlanenumber, "BGMレーン最大位置"), (start, "開始位置"), (end, "終了小節")]:
+        if not value.isdigit():
+            raise ValueError(f"{name} は整数で入力してください")
+        num = int(value)
+        if num < 0 or num > 999:
+            raise ValueError(f"{name} は0～999の範囲で入力してください")
+
+    max_bgmlanenumber = int(max_bgmlanenumber)
+    start = int(start)
+    end = int(end)
+
+    # 無音ノーツ定義のチェック (2桁の数字/アルファベット, "00"以外)
+    # .lower() は文字クラスが両ケースを含むため実質無意味だが、現行の振る舞いを維持する（TODO.md 参照）
+    if not NO_SOUND_PATTERN.match(no_sound_objnumber.lower()):
+        raise ValueError("無音ノーツ定義は2桁の数字またはアルファベットで入力してください")
+    if no_sound_objnumber == "00":
+        raise ValueError("無音ノーツ定義に '00' は使用できません")
+
+    # 開始位置と終了位置の関係チェック
+    if start >= end:
+        raise ValueError("開始位置は終了位置より小さくなければなりません")
+
+    return max_bgmlanenumber, start, end
+
+
+def parse_dropped_path(data):
+    """ドラッグ＆ドロップのイベントデータからファイルパスを1つ取り出す。
+
+    複数ファイルがドロップされた場合、tkinterdnd2 は "{path1} {path2}" 形式で渡す。
+    先頭の1つだけを使う。
+    """
+    if data.startswith('{') and data.endswith('}'):
+        return data[1:-1].split('} {')[0]
+    return data
 
 
 # メイン処理

@@ -2,7 +2,6 @@ import logging
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
-import re
 
 import bms_core
 
@@ -92,9 +91,7 @@ def browse_file(entry):
 def drop_file(event, entry):
     file_path = event.data
     if file_path:
-        # 複数ファイルがドロップされた場合、最初のファイルのみ使用
-        if file_path.startswith('{') and file_path.endswith('}'):
-            file_path = file_path[1:-1].split('} {')[0]
+        file_path = bms_core.parse_dropped_path(file_path)
         entry.delete(0, tk.END)
         entry.insert(0, file_path)
 
@@ -111,30 +108,9 @@ def run_main():
         side_order = entries[6].get()  # プルダウン: 置換サイド順
 
         # バリデーション
-        if not all([file_path, max_bgmlanenumber, no_sound_objnumber, start, end]):
-            raise ValueError("すべての項目を入力してください")
-
-        # 数値項目のチェック (0～999)
-        for value, name in [(max_bgmlanenumber, "BGMレーン最大位置"), (start, "開始位置"), (end, "終了小節")]:
-            if not value.isdigit():
-                raise ValueError(f"{name} は整数で入力してください")
-            num = int(value)
-            if num < 0 or num > 999:
-                raise ValueError(f"{name} は0～999の範囲で入力してください")
-
-        max_bgmlanenumber = int(max_bgmlanenumber)
-        start = int(start)
-        end = int(end)
-
-        # 無音ノーツ定義のチェック (2桁の数字/アルファベット, "00"以外)
-        if not re.match(r'^[0-9A-Za-z]{2}$', no_sound_objnumber.lower()):
-            raise ValueError("無音ノーツ定義は2桁の数字またはアルファベットで入力してください")
-        if no_sound_objnumber == "00":
-            raise ValueError("無音ノーツ定義に '00' は使用できません")
-
-        # 開始位置と終了位置の関係チェック
-        if start >= end:
-            raise ValueError("開始位置は終了位置より小さくなければなりません")
+        max_bgmlanenumber, start, end = bms_core.validate_params(
+            file_path, max_bgmlanenumber, no_sound_objnumber, start, end
+        )
 
         # メイン処理の実行
         logging.info(f"処理開始: file_path={file_path}, max_bgmlanenumber={max_bgmlanenumber}, no_sound_objnumber={no_sound_objnumber}, start={start}, end={end}, lane_order={lane_order}, side_order={side_order}")
