@@ -1,0 +1,22 @@
+[project]
+name = "replacement-tool"
+version = "0"
+requires-python = ">=3.13"
+dependencies = []                       # ロジックは標準ライブラリのみ
+
+[project.optional-dependencies]
+gui = ["tkinterdnd2"]                   # GUI 実行と make build のときだけ必要
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.uv]
+package = false                         # 単一スクリプト構成のまま。ビルド対象にしない
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

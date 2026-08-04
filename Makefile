@@ -1,4 +1,4 @@
-.PHONY: build release-patch release-minor release-major _release _gen-version
+.PHONY: build release-patch release-minor release-major _release _gen-version test typecheck golden
 
 # VERSION は git tag を真実とする。
 # - HEAD に v* tag があればそれ (semver 順でタイ解決)
@@ -28,8 +28,8 @@ _gen-version:
 	@echo '__version__ = "$(VERSION)"' > _version.py
 
 # ローカル (mac ネイティブ) 動作確認用。Windows exe は CI で生成する。
-build: _gen-version
-	pyinstaller --onefile --collect-all tkinterdnd2 --name "無音ノーツ自動置換ツール" replacement_tool.py
+build: .venv _gen-version
+	uv run pyinstaller --onefile --collect-all tkinterdnd2 --name "無音ノーツ自動置換ツール" replacement_tool.py
 
 release-patch:
 	@$(MAKE) _release BUMP=patch
@@ -72,3 +72,15 @@ _release:
 	else \
 		echo "キャンセルしました。"; \
 	fi
+
+.venv: pyproject.toml
+	uv sync --extra gui
+
+test: .venv
+	uv run pytest
+
+typecheck: .venv
+	pyright
+
+golden: .venv
+	uv run python tests/regenerate_golden.py
