@@ -44,14 +44,9 @@ def create_gui():
     ]
     entries = []
 
-    # プルダウンメニューの選択肢
-    lane_order_options = [
-        "1234567（左側レーンから順に置換）",
-        "7654321（右側レーンから順に置換）",
-        "4352617（中央レーンから順に置換１）",
-        "4536271（中央レーンから順に置換２）"
-    ]
-    side_order_options = ["左レーン→右レーン", "右レーン→左レーン"]
+    # プルダウンメニューの選択肢（レーン表と定義元を共有する）
+    lane_order_options = bms_core.LANE_ORDER_OPTIONS
+    side_order_options = bms_core.SIDE_ORDER_OPTIONS
 
     for i, label_text in enumerate(labels):
         tk.Label(root, text=label_text).grid(row=i, column=0, padx=10, pady=10, sticky="w")

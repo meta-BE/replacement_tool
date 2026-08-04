@@ -5,6 +5,30 @@ import os
 from math import gcd
 
 
+# GUI のプルダウン選択肢。KEY_LANE_TABLE のキーと兼ねているため、
+# 文字列を変える場合は必ず KEY_LANE_TABLE も同時に変わる。
+LANE_ORDER_OPTIONS = [
+    "1234567（左側レーンから順に置換）",
+    "7654321（右側レーンから順に置換）",
+    "4352617（中央レーンから順に置換１）",
+    "4536271（中央レーンから順に置換２）",
+]
+SIDE_ORDER_OPTIONS = ["左レーン→右レーン", "右レーン→左レーン"]
+
+# beatmania IIDX 系の割り当て。1P=11-19 / 2P=21-29。
+# 16/26 はスクラッチ、17/27 は未使用のため置換対象に含めない。
+KEY_LANE_TABLE = {
+    (LANE_ORDER_OPTIONS[0], SIDE_ORDER_OPTIONS[0]): ["11", "12", "13", "14", "15", "18", "19", "21", "22", "23", "24", "25", "28", "29"],
+    (LANE_ORDER_OPTIONS[1], SIDE_ORDER_OPTIONS[0]): ["19", "18", "15", "14", "13", "12", "11", "29", "28", "25", "24", "23", "22", "21"],
+    (LANE_ORDER_OPTIONS[2], SIDE_ORDER_OPTIONS[0]): ["14", "13", "15", "12", "18", "11", "19", "24", "23", "25", "22", "28", "21", "29"],
+    (LANE_ORDER_OPTIONS[3], SIDE_ORDER_OPTIONS[0]): ["14", "15", "13", "18", "12", "19", "11", "24", "25", "23", "28", "22", "29", "21"],
+    (LANE_ORDER_OPTIONS[0], SIDE_ORDER_OPTIONS[1]): ["21", "22", "23", "24", "25", "28", "29", "11", "12", "13", "14", "15", "18", "19"],
+    (LANE_ORDER_OPTIONS[1], SIDE_ORDER_OPTIONS[1]): ["29", "28", "25", "24", "23", "22", "21", "19", "18", "15", "14", "13", "12", "11"],
+    (LANE_ORDER_OPTIONS[2], SIDE_ORDER_OPTIONS[1]): ["24", "23", "25", "22", "28", "21", "29", "14", "13", "15", "12", "18", "11", "19"],
+    (LANE_ORDER_OPTIONS[3], SIDE_ORDER_OPTIONS[1]): ["24", "25", "23", "28", "22", "29", "21", "14", "15", "13", "18", "12", "19", "11"],
+}
+
+
 # メイン処理
 def run_replacement(file_path, max_bgmlanenumber, no_sound_objnumber, start, end, lane_order, side_order, on_conflict=None):
     content, content_replaced = load_file(file_path)
@@ -85,26 +109,7 @@ def collect_bgm_lane(content, bar, max_bgmlanenumber):
 def collect_key_lanes(content, bar, lane_order, side_order):
     lane_keys = []
     bar_str = f"{bar:03d}"
-
-    # プルダウンメニューに応じたkey_lanesの設定
-    if side_order == "左レーン→右レーン":
-        if lane_order == "1234567（左側レーンから順に置換）":
-            key_lanes = ["11", "12", "13", "14", "15", "18", "19", "21", "22", "23", "24", "25", "28", "29"]
-        elif lane_order == "7654321（右側レーンから順に置換）":
-            key_lanes = ["19", "18", "15", "14", "13", "12", "11", "29", "28", "25", "24", "23", "22", "21"]
-        elif lane_order == "4352617（中央レーンから順に置換１）":
-            key_lanes = ["14", "13", "15", "12", "18", "11", "19", "24", "23", "25", "22", "28", "21", "29"]
-        elif lane_order == "4536271（中央レーンから順に置換２）":
-            key_lanes = ["14", "15", "13", "18", "12", "19", "11", "24", "25", "23", "28", "22", "29", "21"]
-    else:  # side_order == "右レーン→左レーン"
-        if lane_order == "1234567（左側レーンから順に置換）":
-            key_lanes = ["21", "22", "23", "24", "25", "28", "29", "11", "12", "13", "14", "15", "18", "19"]
-        elif lane_order == "7654321（右側レーンから順に置換）":
-            key_lanes = ["29", "28", "25", "24", "23", "22", "21", "19", "18", "15", "14", "13", "12", "11"]
-        elif lane_order == "4352617（中央レーンから順に置換１）":
-            key_lanes = ["24", "23", "25", "22", "28", "21", "29", "14", "13", "15", "12", "18", "11", "19"]
-        elif lane_order == "4536271（中央レーンから順に置換２）":
-            key_lanes = ["24", "25", "23", "28", "22", "29", "21", "14", "15", "13", "18", "12", "19", "11"]
+    key_lanes = KEY_LANE_TABLE[(lane_order, side_order)]
 
     for lane in key_lanes:
         for idx, line in enumerate(content):
