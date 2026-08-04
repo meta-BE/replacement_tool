@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -41,6 +42,14 @@ jobs:
         run: Compress-Archive -Path "dist/無音ノーツ自動置換ツール.exe", "dist/readme.txt" -DestinationPath "dist/replacement_tool_$env:TAG.zip"
 
       - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: dist/replacement_tool_${{ github.ref_name }}.zip
+
+      - name: Upload artifact (手動実行時)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: replacement_tool_${{ github.ref_name }}
+          path: dist/replacement_tool_${{ github.ref_name }}.zip
