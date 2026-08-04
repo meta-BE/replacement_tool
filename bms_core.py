@@ -86,7 +86,9 @@ def run_replacement(file_path, max_bgmlanenumber, no_sound_objnumber, start, end
 def load_file(file_path):
     logging.info(f"ファイルの読み込み開始: {file_path}")
     try:
-        with open(file_path, 'r', encoding='sjis') as f:
+        # newline='' で開くと、行の分割は行いつつ改行コードの変換を行わない。
+        # 入力の CRLF/LF をそのまま往復させるために必要。
+        with open(file_path, 'r', encoding='sjis', newline='') as f:
             content = f.readlines()
     except UnicodeDecodeError:
         logging.error("Shift-JISで読み込めませんでした")
@@ -134,7 +136,7 @@ def save_file(content_replaced, file_path, on_conflict=None):
             logging.info("上書きがキャンセルされました")
             raise Exception("ファイルの上書きがキャンセルされました")
 
-    with open(output_path, 'w', encoding='sjis') as f:
+    with open(output_path, 'w', encoding='sjis', newline='') as f:
         f.writelines(content_replaced)
     logging.info(f"ファイル出力完了: {output_path}")
     return output_path
@@ -223,11 +225,23 @@ def replace_notes(lane_keys, lane_bgm, no_sound_objnumber):
     
     return lane_keys, lane_bgm, replace_count
 
+def _line_ending(line):
+    """行末の改行コードを返す。最終行に改行が無い場合は空文字を返す。"""
+    if line.endswith("\r\n"):
+        return "\r\n"
+    if line.endswith("\n"):
+        return "\n"
+    if line.endswith("\r"):
+        return "\r"
+    return ""
+
+
 # コンテンツ更新
 def update_content(content_replaced, lane_keys, lane_bgm):
+    # 収集時に strip() 済みの行を書き戻すため、元の行末を取り直して付け直す。
     for set_key_single, key_index in lane_keys:
-        content_replaced[key_index] = set_key_single + '\n'
+        content_replaced[key_index] = set_key_single + _line_ending(content_replaced[key_index])
         logging.debug(f"キー行更新: 行 {key_index}")
     for set_bgm_single, bgm_index in lane_bgm:
-        content_replaced[bgm_index] = set_bgm_single + '\n'
+        content_replaced[bgm_index] = set_bgm_single + _line_ending(content_replaced[bgm_index])
         logging.debug(f"BGM行更新: 行 {bgm_index}")
