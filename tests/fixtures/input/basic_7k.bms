@@ -1,0 +1,21 @@
+*---------------------- HEADER FIELD
+#PLAYER 1
+#GENRE TEST
+#TITLE BASIC7K
+#ARTIST TEST
+#BPM 120
+#PLAYLEVEL 1
+#RANK 3
+
+#WAV01 kick.wav
+#WAV02 snare.wav
+#WAV03 hat.wav
+#WAV04 crash.wav
+#WAVZZ silent.wav
+
+*---------------------- MAIN DATA FIELD
+#00101:01020304
+#00111:ZZ00ZZ00
+#00112:00ZZ00ZZ
+#00201:01020304
+#00211:ZZ00ZZ00
