@@ -20,7 +20,7 @@
 - 各コミットの末尾に `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>` を付ける。
 - PyInstaller のエントリポイント名 **`replacement_tool.py` は変更しない**（`Makefile` と `build-windows.yml` の両方が依存）。
 - BMS ファイルの入出力エンコーディングは **`sjis`** 固定。
-- **Task 7 以外で振る舞いを変えない。** 移動したロジックは1行も書き換えない。例外の型・メッセージ・ログ文言もそのまま維持する。
+- **Task 7 以外で、出力される譜面の内容を変えない。** 各タスクが明示的に指定した箇所（`save_file` のシグネチャ、`collect_key_lanes` の表引き化、バリデーションの抽出、`main` の改名）以外は、移動した関数の本体を1行も書き換えない。例外の型・メッセージ・ログ文言もそのまま維持する。
 - 既存バグは**修正しない**。Task 8 で `TODO.md` に記録するだけ。
 - `bms_core.py` は `tkinter` / `tkinterdnd2` を import してはならない。
 - `.venv/` はコミットしない。
