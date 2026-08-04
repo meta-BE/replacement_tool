@@ -29,10 +29,3 @@
 ## 改善余地
 
 6. `.github/workflows/build-windows.yml` は pip ベースのまま。将来 uv へ寄せる余地がある。
-
-7. **`save_file` の `newline=''` が POSIX 環境のテストで保護されていない**
-   macOS / Linux では `os.linesep` が `\n` のため、`bms_core.save_file` から `newline=''` を
-   削除しても `tests/test_newline.py` と `tests/test_golden.py` はすべて green のまま通る。
-   つまり「LF の譜面を Windows exe で処理すると全行が CRLF に変わる」側の回帰は、
-   ubuntu の CI では検出できない。塞ぐなら `builtins.open` を monkeypatch して
-   `newline=''` が渡ることを assert するか、`test.yml` に windows-latest を追加する。
