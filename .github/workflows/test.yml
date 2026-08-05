@@ -8,7 +8,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # PR の中間コミットまで含めてキャンセルすると「タグを打つ時点でその commit は
+  # テスト済み」という前提が崩れるため、cancel は pull_request のときだけ行う。
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -26,8 +28,9 @@ jobs:
           enable-cache: true
 
       # --extra gui を付けない。テストは tkinter を必要としない。
+      # --locked: uv.lock がずれていたら解決し直さず失敗させる（CI 再現性のため）。
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --locked
 
       - name: Run tests
         run: uv run pytest -v
