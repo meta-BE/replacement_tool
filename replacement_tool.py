@@ -72,7 +72,10 @@ def create_gui():
     run_button = tk.Button(root, text="置換実行", command=run_main)
     run_button.grid(row=len(labels), column=1, pady=20)
 
-    root.entries = entries  # entriesをrootに保持
+    # root オブジェクトへの動的な属性追加。tkinter.Tk は entries 属性を持たないため
+    # pyright が reportAttributeAccessIssue を出すが、GUI 内で entries を受け渡す
+    # 既存の設計上の意図的なハックであり、このブランチのスコープ外（TODO.md 参照）。
+    root.entries = entries  # pyright: ignore[reportAttributeAccessIssue]
     root.mainloop()
 
 # 処理0-2: ファイル参照
@@ -97,7 +100,10 @@ def drop_file(event, entry):
 
 # 処理0-4: メイン処理の実行
 def run_main():
-    entries = tk._default_root.entries  # GUIからentriesを取得
+    # tkinter モジュールは _default_root を公開 API として型付けしていないため
+    # pyright が reportAttributeAccessIssue を出すが、実行時には tkinter が
+    # 内部的に維持しているグローバル状態であり動作上問題ない（TODO.md 参照）。
+    entries = tk._default_root.entries  # pyright: ignore[reportAttributeAccessIssue]  # GUIからentriesを取得
     try:
         file_path = entries[0].get().strip()
         max_bgmlanenumber = entries[1].get().strip()
