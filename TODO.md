@@ -29,3 +29,34 @@
 ## 改善余地
 
 6. `.github/workflows/build-windows.yml` は pip ベースのまま。将来 uv へ寄せる余地がある。
+
+（2026-08-05 の最終コードレビューで追加。既存項目の番号は変えず末尾に追記する）
+
+## 既知バグ（追加分）
+
+7. **`validate_params` の正規表現 `$` が末尾改行を許す**
+   `NO_SOUND_PATTERN` は `re.match(r'^[0-9A-Za-z]{2}$', ...)` だが、Python の `$` は
+   行末の `\n` の直前にもマッチするため `"AB\n"` が受理される。GUI 経由は `run_main` の
+   `.strip()` で到達しないが、`validate_params` は `bms_core` の公開 API になった。
+   `re.fullmatch` または `\Z` が正しい。
+
+8. **小節 999 が構造的に処理できない**
+   `end` の上限が 999、`process_bars` が `range(start, end)`（排他）なので処理可能な
+   最大小節は 998。小節 999 を処理するには `end=1000` が必要だがバリデーションが弾く。
+
+9. **`validate_params` の `num < 0` が到達不能**
+   直前の `value.isdigit()` が `-` を含む文字列を弾くため常に偽（既存項目4の
+   `.lower()` が無意味、と同種）。
+
+10. **`replacement_tool.py` の `root.entries` / `tk._default_root` によるグローバル状態**
+    `run_main` がテスト不能な根本原因。pyright の警告を `# pyright: ignore` で
+    抑制している。解消には entries の受け渡し方法の変更が必要。
+
+## 改善余地（追加分）
+
+11. **`build-windows.yml` の artifact 名がスラッシュを含むブランチ名で失敗する**
+    `replacement_tool_${{ github.ref_name }}` は `feature/xxx` のようなブランチ名で
+    `actions/upload-artifact` に拒否され、Windows ビルドを走らせ切った末尾で落ちる。
+    あわせて、`build-windows.yml` が `actions/checkout@v4` / `actions/setup-python@v5`
+    を使っており「Node.js 20 is deprecated」警告が出る点も記載する。GitHub が Node 20
+    ランタイムを撤去した時点でリリース経路が壊れ、気づくのがリリース直前になる。
