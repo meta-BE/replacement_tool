@@ -9,11 +9,18 @@ BMS 譜面ファイル（.bms/.bml/.bme）内の「無音ノーツ」（`ZZ` な
 ## コマンド
 
 ```bash
-# 依存ライブラリのインストール（tkinterdnd2 が唯一の外部依存）
-pip install tkinterdnd2
+# 開発環境セットアップ（uv ベース。CI と同じ Python 3.13 に揃える）
+uv python install 3.13
+uv sync --extra gui     # .venv を作成。GUI 実行や make build にも必要な tkinterdnd2 を含める
+uv tool install pyright  # pyright-langserver を PATH に配置（LSP 用。.venv 内には入れない）
 
 # 実行（GUI/ディスプレイが必要）
-python replacement_tool.py
+uv run python replacement_tool.py
+
+# テスト実行（pytest。tests/ 配下 63件）
+make test        # = uv run pytest
+make typecheck    # = pyright（[tool.pyright] で .venv を参照）
+make golden       # golden fixture (tests/fixtures/expected/*) を再生成。要目視 diff
 
 # ローカル動作確認ビルド（mac ネイティブ。要 pyinstaller）
 make build
@@ -22,26 +29,39 @@ make build
 make release-patch   # / release-minor / release-major
 ```
 
-- テスト・Lint 設定は存在しない（単一スクリプト構成）。
+- テストは `pytest`（`tests/` 配下、`pyproject.toml` の `[tool.pytest.ini_options]` で設定）。型チェックは `pyright`（同ファイルの `[tool.pyright]` で `.venv` を参照）。Lint 専用ツールは無い。
 - 配布用 `.exe` は PyInstaller（onefile/console）でビルドする。`v*` タグ push を起点に GitHub Actions（`.github/workflows/build-windows.yml`, windows-latest）が exe をビルドし、`replacement_tool_<tag>.zip` を Release に添付する。exe はリポジトリにコミットしない。
   - zip 内の exe 名は日本語（`無音ノーツ自動置換ツール.exe`）のまま。Release のアセット名だけ ASCII にしているのは、GitHub がリリースアセット名の非ASCII文字を除去してしまうため（例: `無音…_v1.0.0.zip` が `_v1.0.0.zip` になる）。
 - PyInstaller はクロスコンパイル不可のため、Windows exe の生成は CI 専用。`make build` は mac ネイティブの動作確認用。
+- `.github/workflows/test.yml` が push（main）/ pull_request / 手動実行で pytest を ubuntu-latest / windows-latest 両方で走らせる。GUI 依存の `tkinterdnd2` は入れない（`uv sync` に `--extra gui` を付けない）ため、`replacement_tool.py` はスタブ経由でしか import 検証されない（詳細は「重要な制約・慣習」節参照）。
 
 ## アーキテクチャ
 
-全ロジックは `replacement_tool.py` 1ファイルに集約。処理は関数チェーンで進む:
+2ファイル構成。`bms_core.py` が純ロジック（tkinter 非依存・テスト対象）、`replacement_tool.py` が GUI エントリ（PyInstaller の入口。ファイル名は Makefile / build-windows.yml が依存しているため不変）。処理は関数チェーンで進む:
 
 ```
-create_gui() → run_main()[入力バリデーション] → main()
-  → load_file()        # sjis で読込
+[replacement_tool.py]
+create_gui() → run_main()
+  → bms_core.validate_params()   # 入力バリデーション（文字列 → int への変換も兼ねる）
+  → bms_core.run_replacement()   # ここから bms_core.py 内で完結
+  ...
+drop_file() → bms_core.parse_dropped_path()   # D&D イベントデータからパスを1つ取り出す
+
+[bms_core.py]
+run_replacement()
+  → load_file()        # sjis で読込（newline='' で改行コードを保持。後述）
   → process_bars()     # 小節ごとにループ
       → process_single_bar()
           → collect_bgm_lane()   # BGM レーン(chの01)を収集
           → collect_key_lanes()  # キーレーンを収集（順序はプルダウン設定で決定）
           → replace_notes()      # 置換の中核アルゴリズム
           → update_content()
-  → save_file()        # 同階層に _replaced 付きで sjis 出力
+  → save_file(content_replaced, file_path, on_conflict=None)
+                        # 同階層に _replaced 付きで sjis 出力。on_conflict は上書き確認の
+                        # 手段を呼び出し側(GUI)から注入するコールバック。None は「上書きしない」
 ```
+
+`validate_params` と `parse_dropped_path` はどちらも元々 `replacement_tool.py` 内にあったロジックを `bms_core.py` へ抽出したもの（GUI に依存しないため）。旧 `main()` は `bms_core.run_replacement()` に改名している。
 
 ### 理解に不可欠な BMS ドメイン知識
 
@@ -64,13 +84,17 @@ create_gui() → run_main()[入力バリデーション] → main()
 
 ### プルダウン設定の意味
 
-`collect_key_lanes` 内のハードコードされたチャンネル配列が、GUI の「置換レーン順」×「置換サイド順」の全組み合わせを表現している。ここを変更するとキー音を割り当てる優先順位（左/右/中央から、1P→2P か 2P→1P か）が変わる。
+`bms_core.py` の `KEY_LANE_TABLE`（`(置換レーン順, 置換サイド順) → チャンネル配列` の辞書）が、GUI の「置換レーン順」×「置換サイド順」の全組み合わせを表現している。ここを変更するとキー音を割り当てる優先順位（左/右/中央から、1P→2P か 2P→1P か）が変わる。
+
+GUI のプルダウン選択肢（`bms_core.LANE_ORDER_OPTIONS` / `bms_core.SIDE_ORDER_OPTIONS`）は `KEY_LANE_TABLE` のキーと兼用の文字列であり、`replacement_tool.py` はこの2つの定数からプルダウンの選択肢を導出する（`create_gui` 内でハードコードしない）。これにより「GUI の選択肢文字列」と「`collect_key_lanes` が参照するテーブルのキー」が別々に定義されて食い違う、という不整合が構造的に起きなくなっている。選択肢の文言を変える場合は `KEY_LANE_TABLE` のキーも必ず同時に変える。
 
 ## 重要な制約・慣習
 
 - **文字コードは Shift-JIS（`sjis`）**。BMS ファイルの読込・書込は必ず sjis。`readme.txt` のみ UTF-8。※ BMS 仕様は文字コードを規定しておらず日本語譜面が慣習的に Shift_JIS なだけ。UTF-8 等の譜面は `load_file` で `UnicodeDecodeError` になり読込失敗する。
+- **改行コードは入力をそのまま保持する**。`load_file` / `save_file` はいずれも `open(..., newline='')` で開いており、Python 側で改行コードの変換を行わない。`update_content` が行を書き戻す際も `_line_ending()` で元の行末（`\r\n` / `\n` / `\r` / 無し）を取り直して付け直すため、置換対象になった行も含めて入力の CRLF/LF がそのまま出力に引き継がれる。
 - 無音ノーツ定義は**大文字・小文字を区別**する（バリデーションでも `00` は禁止）。
 - 置換対象小節は `開始位置 ≦ 小節 < 終了位置`（終了位置は含まない）。
 - BGM レーン最大値より右のレーンは置換対象外。キー音は BGM レーン左端から優先選択される。
 - バージョンは git tag（`v*`）を真実とし、ビルド時に `_version.py`（`__version__`）を生成して GUI タイトルに表示する。未生成時は `dev`。
-- 旧版アーカイブとして `old_version/verX.Y.Z/` にコピーを残す運用は継続する（ただし exe バイナリはコミットしない）。
+- 旧版アーカイブとして `old_version/verX.Y.Z/` にコピーを残す運用は継続する（ただし exe バイナリはコミットしない）。現状 `old_version/` 配下に残るのは各バージョンの `readme.txt` のみで、ソースコードのスナップショットは含まれていない。ソースが `bms_core.py` / `replacement_tool.py` の2ファイルに分かれたことで、仮に将来ソースも archive する運用に変える場合は対象が単一スクリプトではなく2ファイルになる点に注意。
+- **既知バグは `TODO.md` に記録し、このリポジトリでは意図的に修正しない**方針を採っている（`replace_notes` の `IndexError`、`BGMレーン最大位置=0` の黙殺、行末空白の消失など）。挙動が仕様通りか疑わしい場合はまず `TODO.md` を確認すること。
