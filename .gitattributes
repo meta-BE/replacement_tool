@@ -1,1 +1,1 @@
-tests/fixtures/**/*.bms -text
+tests/fixtures/** -text
