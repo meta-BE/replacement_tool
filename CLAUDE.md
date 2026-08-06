@@ -33,7 +33,7 @@ make release-patch   # / release-minor / release-major
 - 配布用 `.exe` は PyInstaller（onefile/console）でビルドする。`v*` タグ push を起点に GitHub Actions（`.github/workflows/build-windows.yml`, windows-latest）が exe をビルドし、`replacement_tool_<tag>.zip` を Release に添付する。exe はリポジトリにコミットしない。
   - zip 内の exe 名は日本語（`無音ノーツ自動置換ツール.exe`）のまま。Release のアセット名だけ ASCII にしているのは、GitHub がリリースアセット名の非ASCII文字を除去してしまうため（例: `無音…_v1.0.0.zip` が `_v1.0.0.zip` になる）。
 - PyInstaller はクロスコンパイル不可のため、Windows exe の生成は CI 専用。`make build` は mac ネイティブの動作確認用。
-- `.github/workflows/test.yml` が push（main）/ pull_request / 手動実行で pytest を ubuntu-latest / windows-latest 両方で走らせる。GUI 依存の `tkinterdnd2` は入れない（`uv sync` に `--extra gui` を付けない）ため、`replacement_tool.py` はスタブ経由でしか import 検証されない（詳細は「重要な制約・慣習」節参照）。
+- `.github/workflows/test.yml` が push（main）/ pull_request / 手動実行で pytest を ubuntu-latest / windows-latest 両方で走らせる。GUI 依存の `tkinterdnd2` は入れない（`uv sync` に `--extra gui` を付けない）ため、`replacement_tool.py` はスタブ経由でしか import 検証されない。**この検証には構造的な限界があり、`replacement_tool.py` の `bms_core` 参照はすべて関数本体内にあるため、関数内の結線ミス（存在しない関数名の呼び出し）は検出できない。** 詳細は `tests/test_gui_entry.py` の docstring を参照。
 
 ## アーキテクチャ
 
