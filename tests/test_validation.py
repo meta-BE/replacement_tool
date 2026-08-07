@@ -50,6 +50,14 @@ def test_malformed_silent_note_is_rejected(value):
         _call(no_sound_objnumber=value)
 
 
+def test_silent_note_with_trailing_newline_is_rejected():
+    """Python の `$` は文字列末尾の改行の直前にもマッチするため、`re.match` では
+    "ZZ\\n" が2桁として受理されてしまう。文字列全体の一致を要求する必要がある。
+    """
+    with pytest.raises(ValueError, match="無音ノーツ定義は2桁の数字またはアルファベットで入力してください"):
+        _call(no_sound_objnumber="ZZ\n")
+
+
 def test_zero_zero_silent_note_is_rejected():
     with pytest.raises(ValueError, match="無音ノーツ定義に '00' は使用できません"):
         _call(no_sound_objnumber="00")

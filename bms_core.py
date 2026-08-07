@@ -29,7 +29,7 @@ KEY_LANE_TABLE = {
     (LANE_ORDER_OPTIONS[3], SIDE_ORDER_OPTIONS[1]): ["24", "25", "23", "28", "22", "29", "21", "14", "15", "13", "18", "12", "19", "11"],
 }
 
-NO_SOUND_PATTERN = re.compile(r'^[0-9A-Za-z]{2}$')
+NO_SOUND_PATTERN = re.compile(r'[0-9A-Za-z]{2}')
 
 
 def validate_params(file_path, max_bgmlanenumber, no_sound_objnumber, start, end):
@@ -37,21 +37,23 @@ def validate_params(file_path, max_bgmlanenumber, no_sound_objnumber, start, end
     if not all([file_path, max_bgmlanenumber, no_sound_objnumber, start, end]):
         raise ValueError("すべての項目を入力してください")
 
-    # 数値項目のチェック (0～999)
+    # 数値項目のチェック (0～999)。isdigit() が符号付きの文字列を弾くため、
+    # ここに到達する値は必ず 0 以上であり下限チェックは不要。
     for value, name in [(max_bgmlanenumber, "BGMレーン最大位置"), (start, "開始位置"), (end, "終了小節")]:
         if not value.isdigit():
             raise ValueError(f"{name} は整数で入力してください")
-        num = int(value)
-        if num < 0 or num > 999:
+        if int(value) > 999:
             raise ValueError(f"{name} は0～999の範囲で入力してください")
 
     max_bgmlanenumber = int(max_bgmlanenumber)
     start = int(start)
     end = int(end)
 
-    # 無音ノーツ定義のチェック (2桁の数字/アルファベット, "00"以外)
-    # .lower() は文字クラスが両ケースを含むため実質無意味だが、現行の振る舞いを維持する（TODO.md 参照）
-    if not NO_SOUND_PATTERN.match(no_sound_objnumber.lower()):
+    # 無音ノーツ定義のチェック (2桁の数字/アルファベット, "00"以外)。
+    # 62進拡張に合わせて大文字・小文字を区別するため、正規化せずそのまま検証する。
+    # match ではなく fullmatch を使うのは、`$` が文字列末尾の改行の直前にもマッチし、
+    # "ZZ\n" のような値を2桁として受理してしまうため。
+    if not NO_SOUND_PATTERN.fullmatch(no_sound_objnumber):
         raise ValueError("無音ノーツ定義は2桁の数字またはアルファベットで入力してください")
     if no_sound_objnumber == "00":
         raise ValueError("無音ノーツ定義に '00' は使用できません")
