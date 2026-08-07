@@ -90,6 +90,24 @@ def test_multiple_replacements_in_one_line():
     assert count == 2
 
 
+def test_empty_key_data_is_skipped():
+    # データ部が空の行はノーツ0個として扱い、置換対象にも例外にもしない
+    keys, bgm, count = _run(["#00111:"], ["#00101:0100"])
+
+    assert keys == ["#00111:"]
+    assert bgm == ["#00101:0100"]
+    assert count == 0
+
+
+def test_empty_bgm_data_is_skipped_and_scan_continues():
+    # BGM 行1はデータ部が空なので候補を持たず、走査は行2へ進む
+    keys, bgm, count = _run(["#00111:ZZ00"], ["#00101:", "#00102:0100"])
+
+    assert keys == ["#00111:0100"]
+    assert bgm == ["#00101:", "#00102:0000"]
+    assert count == 1
+
+
 def test_odd_length_key_data_raises():
     with pytest.raises(Exception, match="キーオブジェクト数が2で割り切れません"):
         _run(["#00111:ZZ0"], ["#00101:0100"])

@@ -164,13 +164,25 @@ def collect_key_lanes(content, bar, lane_order, side_order):
                 lane_keys.append((line.strip(), idx))
     return lane_keys
 
+def _object_string(line, colon_idx):
+    """行のデータ部からオブジェクト列を取り出す。
+
+    データ部を空白・`%`・`*` で区切った先頭要素が実データ。コロン以降が空の行
+    （`#00111:`）はノーツ0個として空文字を返し、呼び出し側で自然にスキップさせる。
+    """
+    parts = line[colon_idx + 1:].split()
+    if not parts:
+        return ""
+    return parts[0].split('%')[0].split('*')[0]
+
+
 # ノーツ置換
 def replace_notes(lane_keys, lane_bgm, no_sound_objnumber):
     replace_count = 0  # 置換回数のカウンタ
     for key_idx, (lane_key_single, key_line_idx) in enumerate(lane_keys):
         lane_key_single_replaced = lane_key_single
         colon_idx = lane_key_single_replaced.index(':')
-        obj_str = lane_key_single_replaced[colon_idx+1:].split()[0].split('%')[0].split('*')[0]
+        obj_str = _object_string(lane_key_single_replaced, colon_idx)
         if len(obj_str) % 2 != 0:
             logging.error(f"キーオブジェクト数が2で割り切れません: {lane_key_single}")
             raise Exception("キーオブジェクト数が2で割り切れません")
@@ -187,7 +199,7 @@ def replace_notes(lane_keys, lane_bgm, no_sound_objnumber):
                 for bgm_idx, (lane_bgm_single, bgm_line_idx) in enumerate(lane_bgm):
                     lane_bgm_single_replaced = lane_bgm_single
                     colon_idx_bgm = lane_bgm_single_replaced.index(':')
-                    bgm_obj_str = lane_bgm_single_replaced[colon_idx_bgm+1:].split()[0].split('%')[0].split('*')[0]
+                    bgm_obj_str = _object_string(lane_bgm_single_replaced, colon_idx_bgm)
                     if len(bgm_obj_str) % 2 != 0:
                         logging.error(f"BGMオブジェクト数が2で割り切れません: {lane_bgm_single}")
                         raise Exception("BGMオブジェクト数が2で割り切れません")
