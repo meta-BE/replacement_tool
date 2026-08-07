@@ -73,9 +73,14 @@ def test_zero_zero_silent_note_is_rejected():
         _call(no_sound_objnumber="00")
 
 
-def test_start_must_be_less_than_end():
-    with pytest.raises(ValueError, match="開始位置は終了位置より小さくなければなりません"):
-        _call(start="5", end="5")
+def test_start_must_not_exceed_end():
+    with pytest.raises(ValueError, match="開始位置は終了位置以下でなければなりません"):
+        _call(start="6", end="5")
+
+
+def test_start_equal_to_end_is_accepted():
+    """区間は閉区間なので、開始位置と終了位置が同じ「1小節だけ」の指定は有効。"""
+    assert _call(start="5", end="5") == (8, 5, 5)
 
 
 def test_lowercase_silent_note_is_accepted():

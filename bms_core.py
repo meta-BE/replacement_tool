@@ -69,9 +69,9 @@ def validate_params(file_path, max_bgmlanenumber, no_sound_objnumber, start, end
     if no_sound_objnumber == "00":
         raise ValueError("無音ノーツ定義に '00' は使用できません")
 
-    # 開始位置と終了位置の関係チェック
-    if start >= end:
-        raise ValueError("開始位置は終了位置より小さくなければなりません")
+    # 開始位置と終了位置の関係チェック。閉区間なので start == end（1小節だけ）は有効。
+    if start > end:
+        raise ValueError("開始位置は終了位置以下でなければなりません")
 
     return max_bgmlanenumber, start, end
 
@@ -113,8 +113,9 @@ def load_file(file_path):
 
 # 小節ごとの処理
 def process_bars(content, content_replaced, start, end, max_bgmlanenumber, no_sound_objnumber, lane_order, side_order):
+    """開始位置 ≦ 小節 ≦ 終了位置（閉区間）の各小節を処理する。"""
     replace_count = 0
-    for bar in range(start, end):
+    for bar in range(start, end + 1):
         count = process_single_bar(content, content_replaced, bar, max_bgmlanenumber, no_sound_objnumber, lane_order, side_order)
         replace_count += count
     return replace_count

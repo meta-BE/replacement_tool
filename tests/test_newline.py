@@ -8,7 +8,7 @@ PARAMS = dict(
     max_bgmlanenumber=8,
     no_sound_objnumber="ZZ",
     start=1,
-    end=2,
+    end=1,
     lane_order=bms_core.LANE_ORDER_OPTIONS[0],
     side_order=bms_core.SIDE_ORDER_OPTIONS[0],
 )
