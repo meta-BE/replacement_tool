@@ -22,10 +22,20 @@ def test_valid_params_return_ints():
     assert _call() == (8, 1, 2)
 
 
-@pytest.mark.parametrize("field", ["file_path", "max_bgmlanenumber", "no_sound_objnumber", "start", "end"])
+@pytest.mark.parametrize("field", ["file_path", "no_sound_objnumber", "start", "end"])
 def test_empty_field_is_rejected(field):
     with pytest.raises(ValueError, match="すべての項目を入力してください"):
         _call(**{field: ""})
+
+
+def test_blank_max_bgmlanenumber_means_unlimited():
+    """BGMレーン最大位置だけは空欄を許し、None（制限なし）として返す。"""
+    assert _call(max_bgmlanenumber="") == (None, 1, 2)
+
+
+def test_zero_max_bgmlanenumber_is_accepted():
+    """0 は「0本まで」として受理する。制限なしを表すのは空欄であって 0 ではない。"""
+    assert _call(max_bgmlanenumber="0") == (0, 1, 2)
 
 
 def test_non_numeric_max_bgmlanenumber_is_rejected():

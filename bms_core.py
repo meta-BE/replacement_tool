@@ -33,19 +33,30 @@ NO_SOUND_PATTERN = re.compile(r'[0-9A-Za-z]{2}')
 
 
 def validate_params(file_path, max_bgmlanenumber, no_sound_objnumber, start, end):
-    """GUI から受け取った文字列を検証し、(max_bgmlanenumber, start, end) を int で返す。"""
-    if not all([file_path, max_bgmlanenumber, no_sound_objnumber, start, end]):
+    """GUI から受け取った文字列を検証し、(max_bgmlanenumber, start, end) を int で返す。
+
+    max_bgmlanenumber だけは空欄を許し、その場合は「制限なし」を表す None を返す。
+    """
+    # max_bgmlanenumber は空欄を「制限なし」として受理するため、必須チェックから外す。
+    if not all([file_path, no_sound_objnumber, start, end]):
         raise ValueError("すべての項目を入力してください")
 
     # 数値項目のチェック (0～999)。isdigit() が符号付きの文字列を弾くため、
     # ここに到達する値は必ず 0 以上であり下限チェックは不要。
-    for value, name in [(max_bgmlanenumber, "BGMレーン最大位置"), (start, "開始位置"), (end, "終了小節")]:
+    for value, name, blank_allowed in [
+        (max_bgmlanenumber, "BGMレーン最大位置", True),
+        (start, "開始位置", False),
+        (end, "終了小節", False),
+    ]:
+        if blank_allowed and not value:
+            continue
         if not value.isdigit():
             raise ValueError(f"{name} は整数で入力してください")
         if int(value) > 999:
             raise ValueError(f"{name} は0～999の範囲で入力してください")
 
-    max_bgmlanenumber = int(max_bgmlanenumber)
+    # 「制限なし」を表すのは空欄であって 0 ではない。0 は「0本まで」を意味する。
+    max_bgmlanenumber = int(max_bgmlanenumber) if max_bgmlanenumber else None
     start = int(start)
     end = int(end)
 
@@ -146,10 +157,17 @@ def save_file(content_replaced, file_path, on_conflict=None):
 
 # BGMレーンの収集
 def collect_bgm_lane(content, bar, max_bgmlanenumber):
+    """BGM レーン（ch 01）を収集する。
+
+    max_bgmlanenumber が None（GUI で空欄）なら収集本数を制限しない。
+    0 は「0本まで」を意味し、1本も収集しない。
+    """
     lane_bgm = []
     bar_str = f"{bar:03d}"
     for idx, line in enumerate(content):
-        if line.startswith(f"#{bar_str}01") and len(lane_bgm) < max_bgmlanenumber:
+        if max_bgmlanenumber is not None and len(lane_bgm) >= max_bgmlanenumber:
+            break
+        if line.startswith(f"#{bar_str}01"):
             lane_bgm.append((line.rstrip("\r\n"), idx))
     return lane_bgm
 
