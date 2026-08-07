@@ -29,36 +29,49 @@ KEY_LANE_TABLE = {
     (LANE_ORDER_OPTIONS[3], SIDE_ORDER_OPTIONS[1]): ["24", "25", "23", "28", "22", "29", "21", "14", "15", "13", "18", "12", "19", "11"],
 }
 
-NO_SOUND_PATTERN = re.compile(r'^[0-9A-Za-z]{2}$')
+NO_SOUND_PATTERN = re.compile(r'[0-9A-Za-z]{2}')
 
 
 def validate_params(file_path, max_bgmlanenumber, no_sound_objnumber, start, end):
-    """GUI から受け取った文字列を検証し、(max_bgmlanenumber, start, end) を int で返す。"""
-    if not all([file_path, max_bgmlanenumber, no_sound_objnumber, start, end]):
+    """GUI から受け取った文字列を検証し、(max_bgmlanenumber, start, end) を int で返す。
+
+    max_bgmlanenumber だけは空欄を許し、その場合は「制限なし」を表す None を返す。
+    """
+    # max_bgmlanenumber は空欄を「制限なし」として受理するため、必須チェックから外す。
+    if not all([file_path, no_sound_objnumber, start, end]):
         raise ValueError("すべての項目を入力してください")
 
-    # 数値項目のチェック (0～999)
-    for value, name in [(max_bgmlanenumber, "BGMレーン最大位置"), (start, "開始位置"), (end, "終了小節")]:
+    # 数値項目のチェック (0～999)。isdigit() が符号付きの文字列を弾くため、
+    # ここに到達する値は必ず 0 以上であり下限チェックは不要。
+    for value, name, blank_allowed in [
+        (max_bgmlanenumber, "BGMレーン最大位置", True),
+        (start, "開始位置", False),
+        (end, "終了小節", False),
+    ]:
+        if blank_allowed and not value:
+            continue
         if not value.isdigit():
             raise ValueError(f"{name} は整数で入力してください")
-        num = int(value)
-        if num < 0 or num > 999:
+        if int(value) > 999:
             raise ValueError(f"{name} は0～999の範囲で入力してください")
 
-    max_bgmlanenumber = int(max_bgmlanenumber)
+    # 「制限なし」を表すのは空欄であって 0 ではない。0 は「0本まで」を意味する。
+    max_bgmlanenumber = int(max_bgmlanenumber) if max_bgmlanenumber else None
     start = int(start)
     end = int(end)
 
-    # 無音ノーツ定義のチェック (2桁の数字/アルファベット, "00"以外)
-    # .lower() は文字クラスが両ケースを含むため実質無意味だが、現行の振る舞いを維持する（TODO.md 参照）
-    if not NO_SOUND_PATTERN.match(no_sound_objnumber.lower()):
+    # 無音ノーツ定義のチェック (2桁の数字/アルファベット, "00"以外)。
+    # 62進拡張に合わせて大文字・小文字を区別するため、正規化せずそのまま検証する。
+    # match ではなく fullmatch を使うのは、`$` が文字列末尾の改行の直前にもマッチし、
+    # "ZZ\n" のような値を2桁として受理してしまうため。
+    if not NO_SOUND_PATTERN.fullmatch(no_sound_objnumber):
         raise ValueError("無音ノーツ定義は2桁の数字またはアルファベットで入力してください")
     if no_sound_objnumber == "00":
         raise ValueError("無音ノーツ定義に '00' は使用できません")
 
-    # 開始位置と終了位置の関係チェック
-    if start >= end:
-        raise ValueError("開始位置は終了位置より小さくなければなりません")
+    # 開始位置と終了位置の関係チェック。閉区間なので start == end（1小節だけ）は有効。
+    if start > end:
+        raise ValueError("開始位置は終了位置以下でなければなりません")
 
     return max_bgmlanenumber, start, end
 
@@ -100,8 +113,9 @@ def load_file(file_path):
 
 # 小節ごとの処理
 def process_bars(content, content_replaced, start, end, max_bgmlanenumber, no_sound_objnumber, lane_order, side_order):
+    """開始位置 ≦ 小節 ≦ 終了位置（閉区間）の各小節を処理する。"""
     replace_count = 0
-    for bar in range(start, end):
+    for bar in range(start, end + 1):
         count = process_single_bar(content, content_replaced, bar, max_bgmlanenumber, no_sound_objnumber, lane_order, side_order)
         replace_count += count
     return replace_count
@@ -144,11 +158,18 @@ def save_file(content_replaced, file_path, on_conflict=None):
 
 # BGMレーンの収集
 def collect_bgm_lane(content, bar, max_bgmlanenumber):
+    """BGM レーン（ch 01）を収集する。
+
+    max_bgmlanenumber が None（GUI で空欄）なら収集本数を制限しない。
+    0 は「0本まで」を意味し、1本も収集しない。
+    """
     lane_bgm = []
     bar_str = f"{bar:03d}"
     for idx, line in enumerate(content):
-        if line.startswith(f"#{bar_str}01") and len(lane_bgm) < max_bgmlanenumber:
-            lane_bgm.append((line.strip(), idx))
+        if max_bgmlanenumber is not None and len(lane_bgm) >= max_bgmlanenumber:
+            break
+        if line.startswith(f"#{bar_str}01"):
+            lane_bgm.append((line.rstrip("\r\n"), idx))
     return lane_bgm
 
 
@@ -161,8 +182,20 @@ def collect_key_lanes(content, bar, lane_order, side_order):
     for lane in key_lanes:
         for idx, line in enumerate(content):
             if line.startswith(f"#{bar_str}{lane}"):
-                lane_keys.append((line.strip(), idx))
+                lane_keys.append((line.rstrip("\r\n"), idx))
     return lane_keys
+
+def _object_string(line, colon_idx):
+    """行のデータ部からオブジェクト列を取り出す。
+
+    データ部を空白・`%`・`*` で区切った先頭要素が実データ。コロン以降が空の行
+    （`#00111:`）はノーツ0個として空文字を返し、呼び出し側で自然にスキップさせる。
+    """
+    parts = line[colon_idx + 1:].split()
+    if not parts:
+        return ""
+    return parts[0].split('%')[0].split('*')[0]
+
 
 # ノーツ置換
 def replace_notes(lane_keys, lane_bgm, no_sound_objnumber):
@@ -170,7 +203,7 @@ def replace_notes(lane_keys, lane_bgm, no_sound_objnumber):
     for key_idx, (lane_key_single, key_line_idx) in enumerate(lane_keys):
         lane_key_single_replaced = lane_key_single
         colon_idx = lane_key_single_replaced.index(':')
-        obj_str = lane_key_single_replaced[colon_idx+1:].split()[0].split('%')[0].split('*')[0]
+        obj_str = _object_string(lane_key_single_replaced, colon_idx)
         if len(obj_str) % 2 != 0:
             logging.error(f"キーオブジェクト数が2で割り切れません: {lane_key_single}")
             raise Exception("キーオブジェクト数が2で割り切れません")
@@ -187,7 +220,7 @@ def replace_notes(lane_keys, lane_bgm, no_sound_objnumber):
                 for bgm_idx, (lane_bgm_single, bgm_line_idx) in enumerate(lane_bgm):
                     lane_bgm_single_replaced = lane_bgm_single
                     colon_idx_bgm = lane_bgm_single_replaced.index(':')
-                    bgm_obj_str = lane_bgm_single_replaced[colon_idx_bgm+1:].split()[0].split('%')[0].split('*')[0]
+                    bgm_obj_str = _object_string(lane_bgm_single_replaced, colon_idx_bgm)
                     if len(bgm_obj_str) % 2 != 0:
                         logging.error(f"BGMオブジェクト数が2で割り切れません: {lane_bgm_single}")
                         raise Exception("BGMオブジェクト数が2で割り切れません")
@@ -238,7 +271,7 @@ def _line_ending(line):
 
 # コンテンツ更新
 def update_content(content_replaced, lane_keys, lane_bgm):
-    # 収集時に strip() 済みの行を書き戻すため、元の行末を取り直して付け直す。
+    # 収集時に改行を落とした行を書き戻すため、元の改行コードを取り直して付け直す。
     for set_key_single, key_index in lane_keys:
         content_replaced[key_index] = set_key_single + _line_ending(content_replaced[key_index])
         logging.debug(f"キー行更新: 行 {key_index}")

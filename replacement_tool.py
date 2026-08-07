@@ -34,10 +34,10 @@ def create_gui():
     # 入力フィールドとラベル
     labels = [
         "ファイルパス（ドラッグ・アンド・ドロップでも読込可）:",
-        "BGMレーン最大位置:",
+        "BGMレーン最大位置（空欄で無制限）:",
         "無音ノーツ定義（大文字・小文字は区別されます）:",
         "置換対象区間の開始位置（～小節目から）:",
-        "置換対象区間の終了位置（～小節目の手前まで）:",
+        "置換対象区間の終了位置（～小節目まで）:",
         "置換レーン順:",
         "置換サイド順（14Keysの設定）:"
     ]
@@ -69,13 +69,9 @@ def create_gui():
     browse_button.grid(row=0, column=2, padx=10, pady=10)
 
     # 置換実行ボタン
-    run_button = tk.Button(root, text="置換実行", command=run_main)
+    run_button = tk.Button(root, text="置換実行", command=lambda: run_main(entries))
     run_button.grid(row=len(labels), column=1, pady=20)
 
-    # root オブジェクトへの動的な属性追加。tkinter.Tk は entries 属性を持たないため
-    # pyright が reportAttributeAccessIssue を出すが、GUI 内で entries を受け渡す
-    # 既存の設計上の意図的なハックであり、このブランチのスコープ外（TODO.md 参照）。
-    root.entries = entries  # pyright: ignore[reportAttributeAccessIssue]
     root.mainloop()
 
 # 処理0-2: ファイル参照
@@ -99,11 +95,8 @@ def drop_file(event, entry):
         entry.insert(0, file_path)
 
 # 処理0-4: メイン処理の実行
-def run_main():
-    # tkinter モジュールは _default_root を公開 API として型付けしていないため
-    # pyright が reportAttributeAccessIssue を出すが、実行時には tkinter が
-    # 内部的に維持しているグローバル状態であり動作上問題ない（TODO.md 参照）。
-    entries = tk._default_root.entries  # pyright: ignore[reportAttributeAccessIssue]  # GUIからentriesを取得
+def run_main(entries):
+    """entries は .get() で入力値を返すウィジェット（Entry / StringVar）の列。"""
     try:
         file_path = entries[0].get().strip()
         max_bgmlanenumber = entries[1].get().strip()

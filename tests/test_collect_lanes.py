@@ -103,6 +103,24 @@ def test_collect_bgm_lane_respects_max():
     ]
 
 
+def test_collect_bgm_lane_treats_none_as_unlimited():
+    """空欄入力（None）は本数制限なし。GUI の「BGMレーン最大位置」空欄に対応する。"""
+    content = ["#00101:0100\n", "#00101:0200\n", "#00101:0300\n"]
+
+    assert bms_core.collect_bgm_lane(content, 1, None) == [
+        ("#00101:0100", 0),
+        ("#00101:0200", 1),
+        ("#00101:0300", 2),
+    ]
+
+
+def test_collect_bgm_lane_collects_nothing_for_zero():
+    """0 は「0本まで」を意味し1本も収集しない。仕様として維持する（TODO.md 既知バグ2）。"""
+    content = ["#00101:0100\n", "#00101:0200\n"]
+
+    assert bms_core.collect_bgm_lane(content, 1, 0) == []
+
+
 def test_collect_bgm_lane_ignores_other_bars_and_channels():
     content = ["#00201:0100\n", "#00102:0.75\n", "#00109:0100\n", "#00101:0300\n"]
 

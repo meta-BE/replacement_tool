@@ -16,7 +16,7 @@ _BASE = dict(
     max_bgmlanenumber=8,
     no_sound_objnumber="ZZ",
     start=1,
-    end=2,
+    end=1,
     lane_order=LANE_1234567,
     side_order=LEFT_FIRST,
 )
@@ -30,8 +30,8 @@ GOLDEN_CASES = [
     ("14k_left_first", "14k.bms", dict(_BASE)),
     ("14k_right_first", "14k.bms", {**_BASE, "side_order": RIGHT_FIRST}),
     ("sjis_crlf", "sjis_crlf.bms", dict(_BASE)),
-    # start=1, end=3 で小節1・2を処理し、process_bars の複数小節ループ
+    # start=1, end=2 で小節1・2を処理し、process_bars の複数小節ループ
     # （replace_count の小節横断加算）を検証する。basic_7k.bms は小節2に
     # #00201（BGM）と #00211（キー ch11）を既に持つため fixture の追加は不要。
-    ("basic_7k_two_bars", "basic_7k.bms", {**_BASE, "end": 3}),
+    ("basic_7k_two_bars", "basic_7k.bms", {**_BASE, "end": 2}),
 ]

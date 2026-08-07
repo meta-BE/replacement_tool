@@ -1,4 +1,4 @@
-"""改行コードの保持を検証する。バイト単位で比較する。"""
+"""行末（改行コードと行末空白）の保持を検証する。バイト単位で比較する。"""
 
 from pathlib import Path
 
@@ -8,7 +8,7 @@ PARAMS = dict(
     max_bgmlanenumber=8,
     no_sound_objnumber="ZZ",
     start=1,
-    end=2,
+    end=1,
     lane_order=bms_core.LANE_ORDER_OPTIONS[0],
     side_order=bms_core.SIDE_ORDER_OPTIONS[0],
 )
@@ -51,6 +51,16 @@ def test_cr_only_is_preserved(tmp_path):
     result = _run(tmp_path, b"#00101:0102\r#00111:ZZ00\r")
 
     assert result == b"#00101:0002\r#00111:0100\r"
+
+
+def test_trailing_whitespace_on_replaced_lines_is_preserved(tmp_path):
+    """置換対象になった行でも行末の空白が失われないこと。
+
+    収集時に strip() していた頃は、置換された行に限り行末空白が消えていた。
+    """
+    result = _run(tmp_path, b"#00101:0102  \r\n#00111:ZZ00\t\r\n")
+
+    assert result == b"#00101:0002  \r\n#00111:0100\t\r\n"
 
 
 def test_line_ending_helper_covers_all_cases():

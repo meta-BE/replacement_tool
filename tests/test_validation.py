@@ -22,10 +22,20 @@ def test_valid_params_return_ints():
     assert _call() == (8, 1, 2)
 
 
-@pytest.mark.parametrize("field", ["file_path", "max_bgmlanenumber", "no_sound_objnumber", "start", "end"])
+@pytest.mark.parametrize("field", ["file_path", "no_sound_objnumber", "start", "end"])
 def test_empty_field_is_rejected(field):
     with pytest.raises(ValueError, match="すべての項目を入力してください"):
         _call(**{field: ""})
+
+
+def test_blank_max_bgmlanenumber_means_unlimited():
+    """BGMレーン最大位置だけは空欄を許し、None（制限なし）として返す。"""
+    assert _call(max_bgmlanenumber="") == (None, 1, 2)
+
+
+def test_zero_max_bgmlanenumber_is_accepted():
+    """0 は「0本まで」として受理する。制限なしを表すのは空欄であって 0 ではない。"""
+    assert _call(max_bgmlanenumber="0") == (0, 1, 2)
 
 
 def test_non_numeric_max_bgmlanenumber_is_rejected():
@@ -50,14 +60,27 @@ def test_malformed_silent_note_is_rejected(value):
         _call(no_sound_objnumber=value)
 
 
+def test_silent_note_with_trailing_newline_is_rejected():
+    """Python の `$` は文字列末尾の改行の直前にもマッチするため、`re.match` では
+    "ZZ\\n" が2桁として受理されてしまう。文字列全体の一致を要求する必要がある。
+    """
+    with pytest.raises(ValueError, match="無音ノーツ定義は2桁の数字またはアルファベットで入力してください"):
+        _call(no_sound_objnumber="ZZ\n")
+
+
 def test_zero_zero_silent_note_is_rejected():
     with pytest.raises(ValueError, match="無音ノーツ定義に '00' は使用できません"):
         _call(no_sound_objnumber="00")
 
 
-def test_start_must_be_less_than_end():
-    with pytest.raises(ValueError, match="開始位置は終了位置より小さくなければなりません"):
-        _call(start="5", end="5")
+def test_start_must_not_exceed_end():
+    with pytest.raises(ValueError, match="開始位置は終了位置以下でなければなりません"):
+        _call(start="6", end="5")
+
+
+def test_start_equal_to_end_is_accepted():
+    """区間は閉区間なので、開始位置と終了位置が同じ「1小節だけ」の指定は有効。"""
+    assert _call(start="5", end="5") == (8, 5, 5)
 
 
 def test_lowercase_silent_note_is_accepted():

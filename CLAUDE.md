@@ -17,7 +17,7 @@ uv tool install pyright  # pyright-langserver を PATH に配置（LSP 用。.ve
 # 実行（GUI/ディスプレイが必要）
 uv run python replacement_tool.py
 
-# テスト実行（pytest。tests/ 配下 63件）
+# テスト実行（pytest。tests/ 配下 76件）
 make test        # = uv run pytest
 make typecheck    # = pyright（[tool.pyright] で .venv を参照）
 make golden       # golden fixture (tests/fixtures/expected/*) を再生成。要目視 diff
@@ -33,7 +33,7 @@ make release-patch   # / release-minor / release-major
 - 配布用 `.exe` は PyInstaller（onefile/console）でビルドする。`v*` タグ push を起点に GitHub Actions（`.github/workflows/build-windows.yml`, windows-latest）が exe をビルドし、`replacement_tool_<tag>.zip` を Release に添付する。exe はリポジトリにコミットしない。
   - zip 内の exe 名は日本語（`無音ノーツ自動置換ツール.exe`）のまま。Release のアセット名だけ ASCII にしているのは、GitHub がリリースアセット名の非ASCII文字を除去してしまうため（例: `無音…_v1.0.0.zip` が `_v1.0.0.zip` になる）。
 - PyInstaller はクロスコンパイル不可のため、Windows exe の生成は CI 専用。`make build` は mac ネイティブの動作確認用。
-- `.github/workflows/test.yml` が push（main）/ pull_request / 手動実行で pytest を ubuntu-latest / windows-latest 両方で走らせる。GUI 依存の `tkinterdnd2` は入れない（`uv sync` に `--extra gui` を付けない）ため、`replacement_tool.py` はスタブ経由でしか import 検証されない。**この検証には構造的な限界があり、`replacement_tool.py` の `bms_core` 参照はすべて関数本体内にあるため、関数内の結線ミス（存在しない関数名の呼び出し）は検出できない。** 詳細は `tests/test_gui_entry.py` の docstring を参照。
+- `.github/workflows/test.yml` が push（main）/ pull_request / 手動実行で pytest を ubuntu-latest / windows-latest 両方で走らせる。GUI 依存の `tkinterdnd2` は入れない（`uv sync` に `--extra gui` を付けない）ため、`replacement_tool.py` はスタブ経由でしか検証されない。`tests/test_gui_entry.py` が tkinter / tkinterdnd2 をスタブした子プロセスで import に加えて `run_main(entries)` の実行まで行うため、**関数本体内の `bms_core` 結線ミス（存在しない関数名の呼び出し）も検出できる**。これは `run_main` が entries をグローバル状態ではなく引数で受け取るようになったことで可能になった。
 
 ## アーキテクチャ
 
@@ -41,7 +41,7 @@ make release-patch   # / release-minor / release-major
 
 ```
 [replacement_tool.py]
-create_gui() → run_main()
+create_gui() → run_main(entries)   # entries は .get() を持つウィジェット列。引数で渡す
   → bms_core.validate_params()   # 入力バリデーション（文字列 → int への変換も兼ねる）
   → bms_core.run_replacement()   # ここから bms_core.py 内で完結
   ...
@@ -55,6 +55,7 @@ run_replacement()
           → collect_bgm_lane()   # BGM レーン(chの01)を収集
           → collect_key_lanes()  # キーレーンを収集（順序はプルダウン設定で決定）
           → replace_notes()      # 置換の中核アルゴリズム
+              → _object_string()  # データ部からオブジェクト列を取り出す（空データ部は空文字）
           → update_content()
   → save_file(content_replaced, file_path, on_conflict=None)
                         # 同階層に _replaced 付きで sjis 出力。on_conflict は上書き確認の
@@ -93,8 +94,8 @@ GUI のプルダウン選択肢（`bms_core.LANE_ORDER_OPTIONS` / `bms_core.SIDE
 - **文字コードは Shift-JIS（`sjis`）**。BMS ファイルの読込・書込は必ず sjis。`readme.txt` のみ UTF-8。※ BMS 仕様は文字コードを規定しておらず日本語譜面が慣習的に Shift_JIS なだけ。UTF-8 等の譜面は `load_file` で `UnicodeDecodeError` になり読込失敗する。
 - **改行コードは入力をそのまま保持する**。`load_file` / `save_file` はいずれも `open(..., newline='')` で開いており、Python 側で改行コードの変換を行わない。`update_content` が行を書き戻す際も `_line_ending()` で元の行末（`\r\n` / `\n` / `\r` / 無し）を取り直して付け直すため、置換対象になった行も含めて入力の CRLF/LF がそのまま出力に引き継がれる。
 - 無音ノーツ定義は**大文字・小文字を区別**する（バリデーションでも `00` は禁止）。
-- 置換対象小節は `開始位置 ≦ 小節 < 終了位置`（終了位置は含まない）。
-- BGM レーン最大値より右のレーンは置換対象外。キー音は BGM レーン左端から優先選択される。
+- 置換対象小節は `開始位置 ≦ 小節 ≦ 終了位置` の**閉区間**（終了位置の小節も含む）。v1.x では半開区間だったが、readme.txt の使用例が閉区間を前提に書かれており実装と食い違っていたため、readme 側に実装を合わせた。`start == end` は「その1小節だけ」を意味する有効な指定。
+- BGM レーン最大値より右のレーンは置換対象外。キー音は BGM レーン左端から優先選択される。**空欄は「制限なし」**（`validate_params` が `None` を返し `collect_bgm_lane` が全件収集する）。`0` はこれとは別で「0本まで」を意味し1本も収集しない。両者を混同しないこと。
 - バージョンは git tag（`v*`）を真実とし、ビルド時に `_version.py`（`__version__`）を生成して GUI タイトルに表示する。未生成時は `dev`。
 - 旧版アーカイブとして `old_version/verX.Y.Z/` にコピーを残す運用は継続する（ただし exe バイナリはコミットしない）。現状 `old_version/` 配下に残るのは各バージョンの `readme.txt` のみで、ソースコードのスナップショットは含まれていない。ソースが `bms_core.py` / `replacement_tool.py` の2ファイルに分かれたことで、仮に将来ソースも archive する運用に変える場合は対象が単一スクリプトではなく2ファイルになる点に注意。
-- **既知バグは `TODO.md` に記録し、このリポジトリでは意図的に修正しない**方針を採っている（`replace_notes` の `IndexError`、`BGMレーン最大位置=0` の黙殺、行末空白の消失など）。挙動が仕様通りか疑わしい場合はまず `TODO.md` を確認すること。
+- **既知の問題は `TODO.md` に記録する**。かつては「記録するが修正しない」方針だったが、2026-08-07 に方針を変更し、記録済みのバグは修正する運用にした（LN 未対応など、規模の都合で残しているものは `TODO.md` に理由付きで残る）。挙動が仕様通りか疑わしい場合はまず `TODO.md` を確認すること。
