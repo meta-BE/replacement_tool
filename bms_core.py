@@ -148,7 +148,7 @@ def collect_bgm_lane(content, bar, max_bgmlanenumber):
     bar_str = f"{bar:03d}"
     for idx, line in enumerate(content):
         if line.startswith(f"#{bar_str}01") and len(lane_bgm) < max_bgmlanenumber:
-            lane_bgm.append((line.strip(), idx))
+            lane_bgm.append((line.rstrip("\r\n"), idx))
     return lane_bgm
 
 
@@ -161,7 +161,7 @@ def collect_key_lanes(content, bar, lane_order, side_order):
     for lane in key_lanes:
         for idx, line in enumerate(content):
             if line.startswith(f"#{bar_str}{lane}"):
-                lane_keys.append((line.strip(), idx))
+                lane_keys.append((line.rstrip("\r\n"), idx))
     return lane_keys
 
 def _object_string(line, colon_idx):
@@ -250,7 +250,7 @@ def _line_ending(line):
 
 # コンテンツ更新
 def update_content(content_replaced, lane_keys, lane_bgm):
-    # 収集時に strip() 済みの行を書き戻すため、元の行末を取り直して付け直す。
+    # 収集時に改行を落とした行を書き戻すため、元の改行コードを取り直して付け直す。
     for set_key_single, key_index in lane_keys:
         content_replaced[key_index] = set_key_single + _line_ending(content_replaced[key_index])
         logging.debug(f"キー行更新: 行 {key_index}")
