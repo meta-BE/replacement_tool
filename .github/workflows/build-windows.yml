@@ -13,11 +13,23 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
+
+      # ファイル名にもアーティファクト名にも使えない文字を含むブランチ名
+      # （feature/xxx など）で workflow_dispatch されても落ちないよう、事前に
+      # 無害化した名前を作る。v1.0.0 のようなタグ名は "." と "-" が許容される
+      # ためそのまま残り、リリースアセット名は従来から変わらない。
+      - name: Compute safe ref name
+        shell: pwsh
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          $safe = $env:REF_NAME -replace '[^A-Za-z0-9._-]', '-'
+          Add-Content -Path $env:GITHUB_ENV -Value "SAFE_REF=$safe"
 
       - name: Install dependencies
         run: pip install pyinstaller tkinterdnd2
@@ -37,19 +49,17 @@ jobs:
 
       - name: Create ZIP
         shell: pwsh
-        env:
-          TAG: ${{ github.ref_name }}
-        run: Compress-Archive -Path "dist/無音ノーツ自動置換ツール.exe", "dist/readme.txt" -DestinationPath "dist/replacement_tool_$env:TAG.zip"
+        run: Compress-Archive -Path "dist/無音ノーツ自動置換ツール.exe", "dist/readme.txt" -DestinationPath "dist/replacement_tool_$env:SAFE_REF.zip"
 
       - name: Upload to Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          files: dist/replacement_tool_${{ github.ref_name }}.zip
+          files: dist/replacement_tool_${{ env.SAFE_REF }}.zip
 
       - name: Upload artifact (手動実行時)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
-          name: replacement_tool_${{ github.ref_name }}
-          path: dist/replacement_tool_${{ github.ref_name }}.zip
+          name: replacement_tool_${{ env.SAFE_REF }}
+          path: dist/replacement_tool_${{ env.SAFE_REF }}.zip
